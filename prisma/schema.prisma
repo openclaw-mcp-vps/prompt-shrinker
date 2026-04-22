@@ -1,0 +1,2 @@
+// This project intentionally does NOT use Prisma ORM.
+// Data persistence is implemented with direct SQL via `pg` and a JSON fallback.

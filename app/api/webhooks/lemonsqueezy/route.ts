@@ -1,41 +1,77 @@
-import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
 
-import { setSubscriptionStatus } from "@/lib/db";
-import { extractWebhookDetails, mapLemonStatusToInternal, verifyLemonWebhookSignature, type LemonWebhookPayload } from "@/lib/lemonsqueezy";
+import { upsertEntitlement } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-export async function POST(request: NextRequest) {
-  const rawBody = await request.text();
-  const signature = request.headers.get("x-signature");
+function getStripeClient() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder");
+}
 
-  if (!verifyLemonWebhookSignature(rawBody, signature)) {
-    return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
+async function extractCustomerEmail(session: Stripe.Checkout.Session) {
+  return session.customer_details?.email || session.customer_email || null;
+}
+
+export async function POST(request: Request) {
+  const stripeSignature = (await headers()).get("stripe-signature");
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!stripeSignature || !webhookSecret) {
+    return NextResponse.json(
+      { error: "Missing stripe-signature header or STRIPE_WEBHOOK_SECRET." },
+      { status: 400 }
+    );
   }
 
+  const rawBody = await request.text();
+  const stripe = getStripeClient();
+
+  let event: Stripe.Event;
   try {
-    const payload = JSON.parse(rawBody) as LemonWebhookPayload;
-    const details = extractWebhookDetails(payload);
-
-    if (!details.email) {
-      return NextResponse.json({ ok: true, ignored: true, reason: "No customer email in event payload" });
-    }
-
-    const mappedStatus = mapLemonStatusToInternal(details.status, details.eventName);
-
-    await setSubscriptionStatus({
-      email: details.email,
-      status: mappedStatus,
-      customerId: details.customerId,
-      subscriptionId: details.subscriptionId,
-      currentPeriodEnd: details.currentPeriodEnd
-    });
-
-    return NextResponse.json({ ok: true, event: details.eventName, status: mappedStatus });
+    event = stripe.webhooks.constructEvent(rawBody, stripeSignature, webhookSecret);
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Webhook processing failed"
+        error:
+          error instanceof Error ? `Webhook signature verification failed: ${error.message}` : "Invalid webhook signature."
+      },
+      { status: 400 }
+    );
+  }
+
+  try {
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const email = await extractCustomerEmail(session);
+      if (email) {
+        await upsertEntitlement(email, true, `stripe_checkout:${session.id}`);
+      }
+    }
+
+    if (event.type === "customer.subscription.deleted") {
+      const subscription = event.data.object as Stripe.Subscription;
+      const email = subscription.metadata?.email;
+      if (email) {
+        await upsertEntitlement(email, false, `stripe_subscription_deleted:${subscription.id}`);
+      }
+    }
+
+    if (event.type === "customer.subscription.updated") {
+      const subscription = event.data.object as Stripe.Subscription;
+      const email = subscription.metadata?.email;
+      if (email) {
+        const active = subscription.status === "active" || subscription.status === "trialing";
+        await upsertEntitlement(email, active, `stripe_subscription_updated:${subscription.id}`);
+      }
+    }
+
+    return NextResponse.json({ received: true });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Webhook processing failed."
       },
       { status: 500 }
     );

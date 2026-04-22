@@ -1,208 +1,188 @@
 import Link from "next/link";
-import type { Metadata } from "next";
-import { ArrowRight, DollarSign, Gauge, ShieldCheck, Sparkles, TimerReset } from "lucide-react";
+import { cookies } from "next/headers";
+import { ArrowRight, CircleDollarSign, Gauge, ShieldCheck, Zap } from "lucide-react";
 
-import { PricingCards } from "@/components/PricingCards";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AccessClaimForm } from "@/components/AccessClaimForm";
+import { PricingTable } from "@/components/PricingTable";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ACCESS_COOKIE_NAME, parseSessionToken } from "@/lib/auth";
+import { getStripePaymentLink } from "@/lib/lemonsqueezy";
 
-export const metadata: Metadata = {
-  title: "Prompt Shrinker — cut Claude/GPT token costs 40-70% automatically",
-  description:
-    "Web UI + API for teams to compress prompts with OpenAI/Anthropic-backed rewriting and subscription billing via Lemon Squeezy."
-};
-
-const faqItems = [
+const faqs = [
   {
-    question: "How does Prompt Shrinker keep output quality while removing tokens?",
-    answer:
-      "The compressor model is instructed to preserve hard constraints, expected output format, and acceptance criteria while removing repetition and loose phrasing. You also get risk notes for quick QA before rollout."
+    q: "How does Prompt Shrinker preserve quality while cutting tokens?",
+    a: "The compressor keeps intent, constraints, format instructions, and critical context. It removes repetition, soft language, and unnecessary verbosity that consumes tokens without improving outputs."
   },
   {
-    question: "Can my team use this for system prompts and eval prompts?",
-    answer:
-      "Yes. The dashboard is designed for engineering teams who run prompts in production pipelines, test harnesses, and internal agent tooling."
+    q: "Do we have to switch from GPT to Claude or vice versa?",
+    a: "No. Prompt Shrinker works with both. You can choose OpenAI or Anthropic in the dashboard or let the tool auto-select based on your API keys."
   },
   {
-    question: "What happens when I hit the monthly usage limit?",
-    answer:
-      "API calls are rejected until the next billing cycle. We expose your current usage in the dashboard so you can monitor runway in real time."
+    q: "How does paywall access work?",
+    a: "Checkout runs on Stripe hosted payment links. After payment, the Stripe webhook marks your email as active and the unlock form issues your secure access cookie."
   },
   {
-    question: "Do I need both OpenAI and Anthropic keys configured?",
-    answer:
-      "No. If one provider key is present, Prompt Shrinker uses it. If both exist, OpenAI is used first by default."
+    q: "Can we use it in internal tooling?",
+    a: "Yes. The paid plan includes API access so teams can run compression in CI pipelines, prompt libraries, and internal dev tools."
   }
 ];
 
-export default function HomePage() {
+const problemCards = [
+  {
+    icon: CircleDollarSign,
+    title: "Token Waste Scales Fast",
+    body: "Teams with active assistants waste budget on bloated prompts. A 30-line prompt repeated thousands of times can burn hundreds of dollars per month."
+  },
+  {
+    icon: Gauge,
+    title: "CLI Tools Don’t Fit Teams",
+    body: "Existing prompt compression tools are mostly CLI-first. Product teams need a simple UI, usage visibility, and a shared hosted workflow."
+  },
+  {
+    icon: ShieldCheck,
+    title: "Manual Edits Are Risky",
+    body: "Hand-trimming prompts can break requirements and degrade output quality. Prompt Shrinker preserves constraints while aggressively trimming excess tokens."
+  }
+];
+
+export default async function HomePage() {
+  const cookieStore = await cookies();
+  const session = parseSessionToken(cookieStore.get(ACCESS_COOKIE_NAME)?.value);
+  const paymentLink = getStripePaymentLink();
+
   return (
-    <main className="relative overflow-hidden">
-      <div className="mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 lg:px-8">
-        <header className="flex items-center justify-between py-4">
-          <div className="font-['var(--font-plex-mono)'] text-sm tracking-wide text-cyan-200">prompt-shrinker</div>
-          <Link href="/dashboard" className={buttonVariants({ variant: "outline" })}>
-            Open Dashboard
-          </Link>
-        </header>
-
-        <section className="mt-14 grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-          <div className="space-y-6">
-            <Badge className="w-fit">AI Dev Tools</Badge>
-            <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
-              Prompt Shrinker
-              <span className="mt-2 block text-cyan-300">cut Claude/GPT token costs 40-70% automatically</span>
-            </h1>
-            <p className="max-w-2xl text-lg text-slate-300">
-              Paste any prompt and get a compressed, production-ready version in seconds. Keep output quality. Cut spend.
-              Move faster.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Link href="#pricing" className={buttonVariants({ size: "lg" })}>
-                Start for $9/month
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-              <Link href="/dashboard" className={buttonVariants({ size: "lg", variant: "secondary" })}>
-                Go to Compressor
-              </Link>
-            </div>
-            <p className="text-sm text-slate-400">Built for AI-heavy teams spending $200+/month on model APIs.</p>
-          </div>
-
-          <Card className="border-cyan-400/20 bg-slate-900/80">
-            <CardHeader>
-              <CardTitle className="text-xl">Why teams switch from CLI-only tools</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-slate-300">
-              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-                <p className="font-medium text-white">Problem</p>
-                <p className="mt-1">CLI workflows do not fit non-technical users and are hard to standardize across teams.</p>
-              </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-                <p className="font-medium text-white">Hosted wedge</p>
-                <p className="mt-1">Web UI + API + billing means anyone on your team can optimize prompts and track usage.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="mt-20">
-          <h2 className="text-2xl font-semibold text-white sm:text-3xl">The cost leak you can fix this week</h2>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <DollarSign className="h-4 w-4 text-emerald-300" />
-                  Hidden token waste
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-slate-300">
-                Prompts are often 2-3x longer than needed. You pay for every token, every request, every day.
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <TimerReset className="h-4 w-4 text-cyan-300" />
-                  Slow iteration cycles
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-slate-300">
-                Manual prompt cleanup is tedious and inconsistent. Engineers stop doing it even when costs climb.
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Gauge className="h-4 w-4 text-violet-300" />
-                  No team-level controls
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-slate-300">
-                Without hosted access control and usage caps, optimization gets stuck as ad-hoc individual work.
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        <section className="mt-20">
-          <h2 className="text-2xl font-semibold text-white sm:text-3xl">How Prompt Shrinker works</h2>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <Card className="bg-slate-900/60">
-              <CardHeader>
-                <CardTitle className="text-base">1. Paste the original prompt</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-slate-300">
-                Drop in system prompts, agent tasks, or one-off generation instructions.
-              </CardContent>
-            </Card>
-            <Card className="bg-slate-900/60">
-              <CardHeader>
-                <CardTitle className="text-base">2. AI rewrites for density</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-slate-300">
-                OpenAI/Anthropic-based rewriting keeps constraints while reducing token footprint.
-              </CardContent>
-            </Card>
-            <Card className="bg-slate-900/60">
-              <CardHeader>
-                <CardTitle className="text-base">3. Ship and monitor usage</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-slate-300">
-                Use the optimized prompt immediately and track monthly optimization usage per account.
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        <section id="pricing" className="mt-20 scroll-mt-20">
-          <h2 className="text-2xl font-semibold text-white sm:text-3xl">Simple pricing for AI-heavy teams</h2>
-          <p className="mt-3 max-w-2xl text-slate-300">
-            One plan, one job: reduce recurring token spend without sacrificing output quality.
+    <main className="pb-24">
+      <section className="mx-auto max-w-6xl px-6 pt-10">
+        <header className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-8 md:p-12">
+          <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">ai-dev-tools</p>
+          <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight text-slate-100 md:text-6xl">
+            Prompt Shrinker.
+            <span className="block bg-gradient-to-r from-cyan-300 to-emerald-300 bg-clip-text text-transparent">
+              Cut Claude/GPT token costs 40-70% automatically.
+            </span>
+          </h1>
+          <p className="mt-5 max-w-2xl text-lg text-slate-300">
+            Paste any prompt and get a shorter version that keeps intent, constraints, and output shape.
+            Designed for teams already spending $200+ per month on model APIs.
           </p>
-          <div className="mt-6">
-            <PricingCards />
-          </div>
-        </section>
-
-        <section className="mt-20">
-          <h2 className="text-2xl font-semibold text-white sm:text-3xl">FAQ</h2>
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {faqItems.map((item) => (
-              <Card key={item.question}>
-                <CardHeader>
-                  <CardTitle className="text-base">{item.question}</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-slate-300">{item.answer}</CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        <section className="mt-20 rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 to-slate-950 p-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="font-['var(--font-plex-mono)'] text-xs uppercase tracking-widest text-cyan-300">Ready to shrink spend?</p>
-              <h3 className="mt-2 text-2xl font-semibold">Start compressing prompts in under 2 minutes.</h3>
-            </div>
-            <Link href="/dashboard" className={buttonVariants({ size: "lg" })}>
-              Open Dashboard
-              <Sparkles className="ml-2 h-4 w-4" />
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            {session ? (
+              <Link href="/dashboard">
+                <Button size="lg" className="w-full sm:w-auto">
+                  Open Dashboard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            ) : (
+              <a href={paymentLink} target="_blank" rel="noreferrer">
+                <Button size="lg" className="w-full sm:w-auto">
+                  Start for $9/month
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </a>
+            )}
+            <Link href="#how-it-works">
+              <Button variant="secondary" size="lg" className="w-full sm:w-auto">
+                See How It Works
+              </Button>
             </Link>
           </div>
-        </section>
-      </div>
-
-      <footer className="border-t border-slate-900/80 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-2 px-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:px-6 lg:px-8">
-          <p>© {new Date().getFullYear()} Prompt Shrinker</p>
-          <p className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4" />
-            Dark-mode only by design.
+          <p className="mt-4 text-sm text-slate-400">
+            {session
+              ? `Signed in as ${session.email}`
+              : "No credit card form on this site. Checkout runs through Stripe hosted payment links."}
           </p>
+        </header>
+      </section>
+
+      <section className="mx-auto mt-14 grid max-w-6xl gap-5 px-6 md:grid-cols-3">
+        {problemCards.map(({ icon: Icon, title, body }) => (
+          <Card key={title}>
+            <CardHeader>
+              <Icon className="h-5 w-5 text-cyan-300" />
+              <CardTitle className="mt-2 text-xl">{title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="text-slate-300">{body}</CardDescription>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
+      <section id="how-it-works" className="mx-auto mt-16 max-w-6xl px-6">
+        <div className="grid gap-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-8 md:grid-cols-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Step 1</p>
+            <h3 className="mt-2 text-xl font-semibold">Paste Your Prompt</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              Drop in long product, coding, or support prompts that currently cost too much.
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Step 2</p>
+            <h3 className="mt-2 text-xl font-semibold">AI Compression Engine</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              We use OpenAI/Anthropic to preserve requirements while stripping redundant language.
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Step 3</p>
+            <h3 className="mt-2 text-xl font-semibold">Ship Lower-Cost Prompts</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              Copy the optimized prompt, track usage limits, and push to your internal prompt library.
+            </p>
+          </div>
         </div>
-      </footer>
+      </section>
+
+      <section className="mx-auto mt-16 max-w-6xl px-6">
+        <PricingTable paymentLink={paymentLink} />
+      </section>
+
+      <section className="mx-auto mt-10 max-w-3xl rounded-2xl border border-slate-800 bg-slate-950/50 p-6 px-6">
+        <h2 className="text-2xl font-semibold">Unlock your paid workspace</h2>
+        <p className="mt-2 text-sm text-slate-300">
+          After checkout, use the same purchase email below. We set a secure cookie and send you straight to
+          your dashboard.
+        </p>
+        <div className="mt-4">
+          <AccessClaimForm />
+        </div>
+      </section>
+
+      <section className="mx-auto mt-16 max-w-4xl px-6">
+        <h2 className="text-3xl font-semibold">Frequently Asked Questions</h2>
+        <div className="mt-6 space-y-4">
+          {faqs.map((faq) => (
+            <Card key={faq.q}>
+              <CardHeader>
+                <CardTitle className="text-lg">{faq.q}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-slate-300">{faq.a}</CardDescription>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto mt-16 max-w-6xl px-6">
+        <div className="flex flex-col items-start justify-between gap-6 rounded-2xl border border-slate-800 bg-slate-950/40 p-6 md:flex-row md:items-center">
+          <div>
+            <h2 className="text-2xl font-semibold">Ready to stop paying for prompt bloat?</h2>
+            <p className="mt-1 text-sm text-slate-300">
+              Prompt Shrinker is the fastest way for AI-heavy teams to lower inference costs without losing output quality.
+            </p>
+          </div>
+          <a href={paymentLink} target="_blank" rel="noreferrer">
+            <Button size="lg">
+              <Zap className="mr-2 h-4 w-4" />
+              Buy and Unlock
+            </Button>
+          </a>
+        </div>
+      </section>
     </main>
   );
 }

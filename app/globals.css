@@ -1,19 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
-  --background: #0d1117;
-  --surface: #111827;
-  --surface-2: #161b22;
-  --foreground: #f8fafc;
+  --bg: #0d1117;
+  --card: #111827;
+  --card-border: #1f2937;
+  --text: #e6edf3;
   --muted: #94a3b8;
-  --border: #273244;
-  --accent: #67e8f9;
-  --accent-2: #86efac;
+  --accent: #22d3ee;
+  --accent-2: #34d399;
 }
 
 * {
-  border-color: var(--border);
+  box-sizing: border-box;
 }
 
 html,
@@ -22,13 +20,11 @@ body {
 }
 
 body {
-  background:
-    radial-gradient(circle at 15% -10%, rgba(14, 165, 233, 0.22), transparent 34%),
-    radial-gradient(circle at 85% 0%, rgba(16, 185, 129, 0.16), transparent 28%),
-    var(--background);
-  color: var(--foreground);
-  font-family: var(--font-space-grotesk), system-ui, sans-serif;
-  text-rendering: optimizeLegibility;
+  margin: 0;
+  background: radial-gradient(circle at 10% -20%, #153255, transparent 35%),
+    radial-gradient(circle at 90% -30%, #123924, transparent 32%),
+    var(--bg);
+  color: var(--text);
 }
 
 a {
